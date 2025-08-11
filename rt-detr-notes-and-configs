@@ -1,0 +1,72 @@
+#config-steps
+
+#1) edit my_dataset.yaml in the following format: (example for my training)
+
+metric: COCO
+num_classes: 4
+
+TrainDataset:
+  !COCODataSet
+    image_dir: configs/datasets/images/train
+    anno_path: configs/datasets/annotations/train.json
+    dataset_dir: configs/datasets
+    data_fields: ['image', 'gt_bbox', 'gt_class']
+
+EvalDataset:
+  !COCODataSet
+    image_dir: configs/datasets/images/val
+    anno_path: configs/datasets/annotations/val.json
+    dataset_dir: configs/datasets
+
+TestDataset:
+  !COCODataSet
+    image_dir: configs/datasets/images/test
+    anno_path: configs/datasets/annotations/test.json
+    dataset_dir: configs/datasets
+
+
+# 2)choose transformer of choice. note that in config -> transformerofchoice.yaml has to have the following format: 
+
+_BASE_: [
+  '../datasets/my_dataset.yml',
+  '../runtime.yml',
+  '_base_/optimizer_6x.yml',
+  '_base_/rtdetrv2_r50vd.yml',
+  '_base_/rtdetrv2_reader.yml'
+]
+
+weights: output/rtdetrv2_r50vd_6x_coco/model_final
+find_unused_parameters: True
+log_iter: 200
+
+
+OptimizerBuilder:
+  optimizer:
+    type: AdamW
+    weight_decay: 0.0001
+    param_groups:
+      - params: ['^(?=.*backbone)(?!.*norm).*$']
+        learning_rate: 0.00001
+      - params: ['^(?=.*(?:neck|transformer))(?=.*(?:norm|bn)).*$']
+        weight_decay: 0.
+
+# where in BASE 1st line is the yaml of our training.
+
+""" #3 VERY IMPORTANT IF TRAINING ON WINDOWS!!! 
+CUDA version and cuDNN (nvidia compiler) need to me compatible with each other. my CUDA version was for example 11.6 (script run on venv of python 3.8) and it needed a cuDNN version of 3.8 + higher. so for my case i downloaded from
+
+https://developer.nvidia.com/rdp/cudnn-archive the following:
+
+Download cuDNN v8.6.0 (October 3rd, 2022), for CUDA 11.x
+
+->unzip the file where 3 folders appear i)bin , ii)include, iii)lib
+
+->copy paste the zip's folders (unzipped) in ProgramFiles/NVIDIA GPU Computing Toolkit and then select your according CUDA folder (mine was 11.6)
+
+->so bin in bin, include in include and lib in lib, small comment in lib for the folder to be put in "x64"
+
+->training was initiated with the following command (it also validates)
+
+python tools/train.py -c configs/rtdetr/rtdetr_r50vd_6x_coco.yml --eval
+
+"""
